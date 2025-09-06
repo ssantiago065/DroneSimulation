@@ -1,15 +1,33 @@
 using UnityEngine;
+
+[System.Serializable]
+public struct XZCoordinate
+{
+    public float x;
+    public float z;
+
+    public Vector3 ToVector3(float y = 0f)
+    {
+        return new Vector3(x, y, z);
+    }
+}
+
 public class ExampleSpawner : MonoBehaviour
 {
     public SpawnInArea spawner;
-    public Vector3 cornerA;
-    public Vector3 cornerB;
-    public Vector3 cornerC;
-    public Vector3 cornerD;
+
+    public XZCoordinate cornerA;
+    public XZCoordinate cornerB;
+    public XZCoordinate cornerC;
+    public XZCoordinate cornerD;
 
     void Start()
     {
-        // Spawnear
-        spawner.SpawnAll(cornerA, cornerB, cornerC, cornerD);
+        spawner.SpawnAll(
+            cornerA.ToVector3(),
+            cornerB.ToVector3(),
+            cornerC.ToVector3(),
+            cornerD.ToVector3()
+        );
     }
 }

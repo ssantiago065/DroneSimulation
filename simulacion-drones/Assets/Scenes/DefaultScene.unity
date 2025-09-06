@@ -299,9 +299,7 @@ MonoBehaviour:
   - {fileID: 558558867760175213, guid: 4d98d580ded9fea44b392de38702cbd3, type: 3}
   - {fileID: 2566849704787295486, guid: 8a84c0295f2dc874ab9d1e96c950d4c1, type: 3}
   - {fileID: 846627323050732323, guid: b952125b983e9f249a64c4b2426d1c39, type: 3}
-  randomYRotation: 1
-  altitudeOffset: 9
-  parentToThis: 1
+  terrain: {fileID: 548869851}
 --- !u!4 &327690153
 Transform:
   m_ObjectHideFlags: 0
@@ -449,6 +447,7 @@ GameObject:
   - component: {fileID: 548869852}
   - component: {fileID: 548869851}
   - component: {fileID: 548869850}
+  - component: {fileID: 548869853}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -531,6 +530,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &548869853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 548869849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07c3af643073a29429bf13a8a9570466, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrain: {fileID: 548869851}
+  autoFind: 0
+  bottomLeft: {x: 0, y: 0.5310383, z: 0}
+  bottomRight: {x: 1000, y: 2.1607764, z: 0}
+  topLeft: {x: 0, y: 0, z: 1000}
+  topRight: {x: 1000, y: 26.222303, z: 1000}
+  drawGizmos: 1
+  gizmoSize: 1
 --- !u!1 &564672833
 GameObject:
   m_ObjectHideFlags: 0
@@ -1412,10 +1431,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawner: {fileID: 327690152}
-  cornerA: {x: 0, y: 0, z: 0}
-  cornerB: {x: 0, y: 0, z: 0}
-  cornerC: {x: 0, y: 0, z: 0}
-  cornerD: {x: 0, y: 0, z: 0}
+  cornerA:
+    x: 469
+    z: 283
+  cornerB:
+    x: 479
+    z: 283
+  cornerC:
+    x: 479
+    z: 293
+  cornerD:
+    x: 469
+    z: 293
 --- !u!4 &1990342187
 Transform:
   m_ObjectHideFlags: 0
