@@ -193,7 +193,7 @@ MonoBehaviour:
     x: 469
     z: 303
   missionTerrain: {fileID: 548869851}
-  targetDescription: una persona con gorra roja
+  targetDescription: A Woman with a white shirt and white pants
   drones:
   - {fileID: 1684301931}
   - {fileID: 1688163534}

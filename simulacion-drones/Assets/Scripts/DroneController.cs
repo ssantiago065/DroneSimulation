@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
 using System.IO;
+using UnityEngine.Networking;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class DroneController : MonoBehaviour
@@ -112,46 +113,74 @@ public class DroneController : MonoBehaviour
     private IEnumerator ScanVisibleTargets()
     {
         PersonIdentity[] allPeople = FindObjectsOfType<PersonIdentity>();
-        Debug.Log(gameObject.name + " encontró " + allPeople.Length + " personas para analizar.");
-
         yield return new WaitForSeconds(1f);
+
+        // Obtenemos una referencia al manager una sola vez
+        SimulationManager simManager = FindObjectOfType<SimulationManager>();
+        string descripcionEspecifica = simManager.targetDescription;
+        string descripcionGeneral = "A person with other characteristics";
+        string serverURL = "http://127.0.0.1:5000/analyze";
 
         foreach (PersonIdentity person in allPeople)
         {
             Vector3 directionToTarget = person.transform.position - cameraSupport.position;
             RaycastHit hit;
 
-            // Calcular si el objetivo es visible con un RayCast
-            if (Physics.Raycast(cameraSupport.position, directionToTarget, out hit))
+            if (Physics.Raycast(cameraSupport.position, directionToTarget, out hit) && hit.transform == person.transform)
             {
-                if (hit.transform == person.transform)
+                AimCameraAt(person.transform.position);
+                FrameTarget(person);
+                
+                visionCamera.enabled = true;
+                yield return new WaitForEndOfFrame();
+                
+                Texture2D photo = new Texture2D(visionCamera.targetTexture.width, visionCamera.targetTexture.height, TextureFormat.RGB24, false);
+                RenderTexture.active = visionCamera.targetTexture;
+                photo.ReadPixels(new Rect(0, 0, visionCamera.targetTexture.width, visionCamera.targetTexture.height), 0, 0);
+                photo.Apply();
+                RenderTexture.active = null;
+                byte[] imageBytes = photo.EncodeToPNG();
+                Destroy(photo);
+                
+                visionCamera.enabled = false;
+                
+                WWWForm form = new WWWForm();
+                form.AddBinaryData("image", imageBytes, "capture.png", "image/png");
+                // Enviamos ambas descripciones
+                form.AddField("specific_description", descripcionEspecifica);
+                form.AddField("general_description", descripcionGeneral);
+
+                using (UnityWebRequest www = UnityWebRequest.Post(serverURL, form))
                 {
-                    Debug.Log(gameObject.name + " analizando a " + person.gameObject.name);
+                    yield return www.SendWebRequest();
 
-                    // a. Apuntar la cámara
-                    AimCameraAt(person.transform.position);
-
-                    // b. Ajustar el zoom
-                    FrameTarget(person);
-
-                    // c. "Tomar la foto" activando y desactivando la cámara
-                    visionCamera.enabled = true; // La cámara renderiza a la Render Texture
-                    yield return new WaitForEndOfFrame(); // Esperamos a que termine de renderizar
-                    //SaveRenderTextureToFile(visionCamera.targetTexture as RenderTexture, person.personID); // Guardar imagen en archivos de juego
-
-                    visionCamera.enabled = false; // La apagamos. La "foto" ya está en la Render Texture.
-
-                    // d. Simular tiempo de análisis (la IA estaría procesando la Render Texture)
-                    yield return new WaitForSeconds(analysisTimePerTarget);
-
-                    // e. Restaurar el zoom
-                    ResetCameraFOV();
-
-                    // TODO: Aquí es donde pasarías la Render Texture al modelo de Barracuda.
+                    if (www.result == UnityWebRequest.Result.Success)
+                    {
+                        var response = JsonUtility.FromJson<AnalysisResult>(www.downloadHandler.text);
+                        
+                        // --- ¡NUEVO! Reportamos el hallazgo al SimulationManager ---
+                        simManager.SubmitDroneReport(gameObject.name, person, response.confidence);
+                    }
+                    else
+                    {
+                        Debug.LogError("Error del servidor: " + www.error);
+                    }
                 }
+                ResetCameraFOV();
             }
         }
-        Debug.Log(gameObject.name + " ha completado su ciclo de escaneo.");
+
+        Debug.Log($"<color=cyan>{gameObject.name} ha completado su ciclo de escaneo.</color>");
+        // Informamos al manager que hemos terminado nuestro ciclo
+        simManager.DroneFinishedScanning(gameObject.name);
+    }
+
+    // --- NUEVO: Añade esta pequeña clase al final de tu archivo o en un archivo nuevo ---
+    // Ayuda a JsonUtility a parsear la respuesta del servidor.
+    [System.Serializable]
+    private class AnalysisResult
+    {
+        public float confidence;
     }
 
 
