@@ -193,7 +193,8 @@ MonoBehaviour:
     x: 469
     z: 303
   missionTerrain: {fileID: 548869851}
-  targetDescription: A Woman with a white shirt and white pants
+  targetDescription: A man with a black vest
+  landingRadius: 5
   drones:
   - {fileID: 1684301931}
   - {fileID: 1688163534}
@@ -377,6 +378,9 @@ MonoBehaviour:
   - {fileID: -2871543521583972006, guid: 280ef97e626682345b740eb62e8c25ce, type: 3}
   - {fileID: -5991634123709460780, guid: 4df9c65b8b5231d4280baa7a3fc12ba6, type: 3}
   - {fileID: 1370257609938049567, guid: 74f7d341a7512b8499f319fa6a53cbec, type: 3}
+  - {fileID: -7005243337019787411, guid: 9bf47571525d9567383d70c3f4af0e8b, type: 3}
+  - {fileID: 464374759903075933, guid: ecb04a83c21adb3fcb550f12bbba88bd, type: 3}
+  - {fileID: 6800746966492409230, guid: 506627205ee0a072bae0d5eba94b8547, type: 3}
   terrain: {fileID: 548869851}
 --- !u!4 &327690153
 Transform:
@@ -662,7 +666,6 @@ GameObject:
   - component: {fileID: 548869852}
   - component: {fileID: 548869851}
   - component: {fileID: 548869850}
-  - component: {fileID: 548869853}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -685,7 +688,7 @@ TerrainCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
+  m_ProvidesContacts: 1
   m_Enabled: 1
   serializedVersion: 2
   m_TerrainData: {fileID: 15600000, guid: 4c13e0e1d3c9f2c4187e22007ddae4ff, type: 2}
@@ -745,18 +748,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &548869853
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 548869849}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 07c3af643073a29429bf13a8a9570466, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &718269916
 PrefabInstance:
   m_ObjectHideFlags: 0

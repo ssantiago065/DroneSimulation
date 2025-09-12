@@ -1,6 +1,6 @@
-// SimulationManager.cs
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using System.Linq;
 
 [System.Serializable]
@@ -25,6 +25,7 @@ public class SimulationManager : MonoBehaviour
 
     [Header("Configuración de la Misión")]
     public string targetDescription = "una persona con gorra roja";
+    public float landingRadius = 5.0f;
 
     [Header("Referencias de la Simulación")]
     public List<DroneController> drones;
@@ -42,7 +43,7 @@ public class SimulationManager : MonoBehaviour
 
     void Start()
     {
-        // Colocamos los drones en sus bases
+        // colocar los drones en sus bases
         if (droneSpawnPoints.Count == drones.Count)
         {
             for (int i = 0; i < drones.Count; i++)
@@ -56,7 +57,7 @@ public class SimulationManager : MonoBehaviour
             Debug.LogError("La cantidad de drones y de puntos de spawn no coincide.");
         }
 
-        // Spawneamos a las personas en el area designada
+        // spawnear a las personas en el area designada
         if (personSpawner != null)
         {
             personSpawner.SpawnAll(
@@ -74,20 +75,19 @@ public class SimulationManager : MonoBehaviour
         dronesFinishedScanning = new HashSet<string>();
 
 
-        // Llamamos a la funcion para que los drones se coloquen en triangulo alrededor de la zona
+        // llamar a la funcion para que los drones se coloquen en triangulo alrededor de la zona
         AssignInitialTrianglePositions();
     }
 
     void AssignInitialTrianglePositions()
     {
-        // Si no hay terreno abortamos
         if (missionTerrain == null)
         {
             Debug.LogError("El terreno no ha sido asignado en el SimulationManager.");
             return;
         }
 
-        // Calculamos donde esta el area de busqueda y la altura para escanear con nuestra camara
+        // calcular donde esta el area de busqueda y la altura para escanear con la camara
         Vector3 center = (cornerA.ToVector3() + cornerB.ToVector3() + cornerC.ToVector3() + cornerD.ToVector3()) / 4f;
         float searchRadius = Vector3.Distance(center, cornerA.ToVector3()) * 1.1f;
         float fov = droneCameraPrefab.fieldOfView;
@@ -96,12 +96,12 @@ public class SimulationManager : MonoBehaviour
 
         Debug.Log("Altura de escaneo relativa calculada: " + scanningAltitude);
 
-        // Calculamos las posiciones en triangulo alrededor del area de busqueda
+        // calcular las posiciones en triangulo alrededor del area de busqueda
         Vector3 pos1 = center + Quaternion.Euler(0, 0, 0) * Vector3.forward * searchRadius;
         Vector3 pos2 = center + Quaternion.Euler(0, 120, 0) * Vector3.forward * searchRadius;
         Vector3 pos3 = center + Quaternion.Euler(0, 240, 0) * Vector3.forward * searchRadius;
 
-        // Ajustamos las posiciones a la altura del terreno
+        // ajustar las posiciones a la altura del terreno
         pos1.y = missionTerrain.SampleHeight(pos1) + missionTerrain.transform.position.y;
         pos2.y = missionTerrain.SampleHeight(pos2) + missionTerrain.transform.position.y;
         pos3.y = missionTerrain.SampleHeight(pos3) + missionTerrain.transform.position.y;
@@ -112,10 +112,9 @@ public class SimulationManager : MonoBehaviour
         drones[2].GoToMissionArea(pos3, scanningAltitude, cruisingAltitude);
     }
 
-
+    // almacenar resultados de escaneos por persona
     public void SubmitDroneReport(string droneName, PersonIdentity person, float confidence)
     {
-        // Si es la primera vez que vemos a esta persona, la añadimos al diccionario
         if (!missionReports.ContainsKey(person))
         {
             missionReports[person] = new Dictionary<string, float>();
@@ -127,55 +126,83 @@ public class SimulationManager : MonoBehaviour
         Debug.Log($"<color=green>[Reporte Recibido]</color> Dron: {droneName}, Objetivo: {person.personID}, Confianza: {confidence * 100:F2}%");
     }
 
-    // --- NUEVA FUNCIÓN: Los drones la llaman al terminar su ciclo ---
     public void DroneFinishedScanning(string droneName)
     {
         dronesFinishedScanning.Add(droneName);
 
-        // Si todos los drones han terminado, es hora de tomar una decisión
         if (dronesFinishedScanning.Count == drones.Count)
         {
             AnalyzeMissionReports();
         }
     }
 
-    // --- NUEVA FUNCIÓN: El cerebro que analiza los datos (Borda Count) ---
+    // Analizar los resultados y elegir a la persona que buscamos
     private void AnalyzeMissionReports()
     {
         Debug.Log("<color=magenta>--- ANÁLISIS DE MISIÓN COMPLETO ---</color>");
         if (missionReports.Count == 0)
         {
-            Debug.LogWarning("No se recibieron reportes de ningún dron. Misión terminada sin resultados.");
+            Debug.LogWarning("No se recibieron reportes. Misión terminada sin resultados.");
             return;
         }
 
-        PersonIdentity bestCandidate = null;
-        float highestTotalConfidence = -1f;
-
-        // Calculamos la puntuación total para cada persona
         var analysisResults = new Dictionary<PersonIdentity, float>();
         foreach (var personEntry in missionReports)
         {
-            PersonIdentity person = personEntry.Key;
-            Dictionary<string, float> reports = personEntry.Value;
-
-            // Borda Count: Sumamos la confianza de todos los drones que vieron a esta persona
-            float totalConfidence = reports.Values.Sum();
-            analysisResults[person] = totalConfidence;
-
-            Debug.Log($"Puntuación total para {person.personID}: {totalConfidence * 100:F2}");
+            float totalConfidence = personEntry.Value.Values.Sum();
+            analysisResults[personEntry.Key] = totalConfidence;
         }
 
-        // Encontramos al candidato con la mayor suma de confianzas
         var sortedResults = analysisResults.OrderByDescending(kvp => kvp.Value);
-        bestCandidate = sortedResults.First().Key;
-        highestTotalConfidence = sortedResults.First().Value;
+        PersonIdentity bestCandidate = sortedResults.First().Key;
+        float highestTotalConfidence = sortedResults.First().Value;
 
-        Debug.Log($"<color=yellow>--- DECISIÓN FINAL ---</color>");
-        Debug.Log($"El candidato con mayor confianza colectiva es <color=lime>{bestCandidate.personID}</color> con una puntuación total de <color=lime>{highestTotalConfidence * 100:F2}</color>.");
+        Debug.Log($"El candidato con mayor confianza colectiva es {bestCandidate.personID} con una puntuación de {highestTotalConfidence * 100:F2}.");
 
-        // TODO: Aquí iría la lógica para el siguiente paso:
-        // 1. Comprobar si la confianza es suficiente para aterrizar.
-        // 2. Si no, calcular un nuevo cerco alrededor de 'bestCandidate' y reiniciar la misión.
+
+        Debug.Log($"<color=lime>Confianza suficiente. Iniciando fase de aterrizaje.</color>");
+
+        DroneController droneToLand = FindClosestDrone(bestCandidate.transform.position);
+
+        Vector3 personPosition = bestCandidate.transform.position;
+        Vector3 dronePosition = droneToLand.transform.position;
+
+        Vector3 directionAwayFromPerson = (dronePosition - personPosition).normalized;
+
+        directionAwayFromPerson.y = 0;
+
+        float landingOffset = 5.0f;
+        Vector3 offsetTargetPos = personPosition + directionAwayFromPerson * landingOffset;
+
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(offsetTargetPos, out hit, landingRadius, NavMesh.AllAreas))
+        {
+            Vector3 landingSpot = hit.position;
+            Debug.Log($"Punto de aterrizaje seguro encontrado en {landingSpot}. Dando orden a {droneToLand.gameObject.name}.");
+            droneToLand.LandAtTarget(landingSpot);
+        }
+        else
+        {
+            Debug.LogError($"No se pudo encontrar un punto de aterrizaje válido cerca de {bestCandidate.personID}.");
+        }
+
+    }
+
+    // encontrar al drone mas cercano al objetivo
+    private DroneController FindClosestDrone(Vector3 targetPosition)
+    {
+        DroneController closestDrone = null;
+        float minDistance = float.MaxValue;
+
+        foreach (var drone in drones)
+        {
+            float distance = Vector3.Distance(drone.transform.position, targetPosition);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestDrone = drone;
+            }
+        }
+        return closestDrone;
     }
 }

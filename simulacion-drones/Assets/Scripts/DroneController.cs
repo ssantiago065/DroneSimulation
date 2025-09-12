@@ -1,4 +1,3 @@
-// DroneController.cs
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
@@ -16,12 +15,14 @@ public class DroneController : MonoBehaviour
     private float defaultFOV;
     private NavMeshAgent agent;
 
-    private enum DroneState { Idle, Ascending, Cruising, Positioning, Scanning }
+    private enum DroneState { Idle, Ascending, Cruising, Positioning, Scanning, Landing, Landed}
     private DroneState currentState;
+    private Vector3 landingPosition;
 
     private Vector3 finalTargetPosition;
     private float scanningAltitude;
     private float cruisingAltitude;
+    private bool isApproachingLandingZone;
 
     void Awake()
     {
@@ -30,7 +31,7 @@ public class DroneController : MonoBehaviour
         agent.enabled = true;
         currentState = DroneState.Idle;
 
-        // --- NUEVO: Guardamos el FOV original y nos aseguramos de que la cámara esté apagada ---
+        // Guardar fov original y apagar camara
         if (visionCamera != null)
         {
             defaultFOV = visionCamera.fieldOfView;
@@ -38,7 +39,7 @@ public class DroneController : MonoBehaviour
         }
     }
 
-    
+
 
     // Apuntar la camara hacia unas coordenadas
     public void AimCameraAt(Vector3 targetPosition)
@@ -58,17 +59,16 @@ public class DroneController : MonoBehaviour
     {
         if (visionCamera == null || person == null) return;
 
-        // 1. Obtenemos el tamaño del objetivo
         float targetSize = 2.0f; // Usamos un tamaño aproximado de 2m para una persona
         if (person.GetComponent<Collider>() != null)
         {
             targetSize = person.GetComponent<Collider>().bounds.size.y;
         }
 
-        // 2. Calculamos la distancia al objetivo
+        // Calculamos la distancia al objetivo
         float distance = Vector3.Distance(visionCamera.transform.position, person.transform.position);
 
-        // 3. Usamos trigonometría para calcular el FOV necesario
+        // Usamos trigonometría para calcular el FOV necesario
         float fov = 2.0f * Mathf.Atan(targetSize * 0.5f / distance) * Mathf.Rad2Deg;
 
         visionCamera.fieldOfView = fov;
@@ -115,7 +115,6 @@ public class DroneController : MonoBehaviour
         PersonIdentity[] allPeople = FindObjectsOfType<PersonIdentity>();
         yield return new WaitForSeconds(1f);
 
-        // Obtenemos una referencia al manager una sola vez
         SimulationManager simManager = FindObjectOfType<SimulationManager>();
         string descripcionEspecifica = simManager.targetDescription;
         string descripcionGeneral = "A person with other characteristics";
@@ -130,10 +129,10 @@ public class DroneController : MonoBehaviour
             {
                 AimCameraAt(person.transform.position);
                 FrameTarget(person);
-                
+
                 visionCamera.enabled = true;
                 yield return new WaitForEndOfFrame();
-                
+
                 Texture2D photo = new Texture2D(visionCamera.targetTexture.width, visionCamera.targetTexture.height, TextureFormat.RGB24, false);
                 RenderTexture.active = visionCamera.targetTexture;
                 photo.ReadPixels(new Rect(0, 0, visionCamera.targetTexture.width, visionCamera.targetTexture.height), 0, 0);
@@ -141,9 +140,9 @@ public class DroneController : MonoBehaviour
                 RenderTexture.active = null;
                 byte[] imageBytes = photo.EncodeToPNG();
                 Destroy(photo);
-                
+
                 visionCamera.enabled = false;
-                
+
                 WWWForm form = new WWWForm();
                 form.AddBinaryData("image", imageBytes, "capture.png", "image/png");
                 // Enviamos ambas descripciones
@@ -157,7 +156,7 @@ public class DroneController : MonoBehaviour
                     if (www.result == UnityWebRequest.Result.Success)
                     {
                         var response = JsonUtility.FromJson<AnalysisResult>(www.downloadHandler.text);
-                        
+
                         // --- ¡NUEVO! Reportamos el hallazgo al SimulationManager ---
                         simManager.SubmitDroneReport(gameObject.name, person, response.confidence);
                     }
@@ -175,12 +174,25 @@ public class DroneController : MonoBehaviour
         simManager.DroneFinishedScanning(gameObject.name);
     }
 
-    // --- NUEVO: Añade esta pequeña clase al final de tu archivo o en un archivo nuevo ---
-    // Ayuda a JsonUtility a parsear la respuesta del servidor.
+    // parsear respuesta
     [System.Serializable]
     private class AnalysisResult
     {
         public float confidence;
+    }
+
+    public void LandAtTarget(Vector3 targetLandingSpot)
+    {
+        if (currentState == DroneState.Scanning || currentState == DroneState.Idle)
+        {
+            this.landingPosition = targetLandingSpot;
+            currentState = DroneState.Landing;
+            this.isApproachingLandingZone = true; 
+            Debug.Log($"<color=orange>{gameObject.name} ha recibido orden de aterrizar en {landingPosition}.</color>");
+
+            // Reactivamos el agente para la aproximación
+            agent.enabled = true;
+        }
     }
 
 
@@ -218,6 +230,9 @@ public class DroneController : MonoBehaviour
                 break;
             case DroneState.Positioning:
                 HandlePositioningState();
+                break;
+            case DroneState.Landing:
+                HandleLandingState();
                 break;
         }
     }
@@ -257,6 +272,37 @@ public class DroneController : MonoBehaviour
             Debug.Log(gameObject.name + " en posición de escaneo. Listo para analizar.");
 
             StartCoroutine(ScanVisibleTargets());
+        }
+    }
+    private void HandleLandingState()
+    {
+        float hoverAltitude = 2.0f;
+        float groundAltitude = 0.5f;
+        
+        if (isApproachingLandingZone)
+        {
+            Vector3 hoverPosition = new Vector3(landingPosition.x, landingPosition.y + hoverAltitude, landingPosition.z);
+            agent.SetDestination(hoverPosition);
+            agent.baseOffset = Mathf.Lerp(agent.baseOffset, hoverAltitude, Time.deltaTime * 1.5f);
+
+            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+            {
+                isApproachingLandingZone = false; 
+                agent.enabled = false; // desactivar el agente para el descenso final
+                Debug.Log($"{gameObject.name} en posición de cernido. Iniciando descenso final.");
+            }
+        }
+        else
+        {
+            Vector3 groundPosition = new Vector3(transform.position.x, landingPosition.y + groundAltitude, transform.position.z);
+            transform.position = Vector3.MoveTowards(transform.position, groundPosition, 2.0f * Time.deltaTime);
+
+            // Comprobamos si hemos aterrizado
+            if (Vector3.Distance(transform.position, groundPosition) < 0.1f)
+            {
+                currentState = DroneState.Landed;
+                Debug.Log($"<color=lime>{gameObject.name} ha aterrizado. Misión completada.</color>");
+            }
         }
     }
 }
