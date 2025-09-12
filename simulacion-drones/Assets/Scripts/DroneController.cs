@@ -157,7 +157,6 @@ public class DroneController : MonoBehaviour
                     {
                         var response = JsonUtility.FromJson<AnalysisResult>(www.downloadHandler.text);
 
-                        // --- ¡NUEVO! Reportamos el hallazgo al SimulationManager ---
                         simManager.SubmitDroneReport(gameObject.name, person, response.confidence);
                     }
                     else
