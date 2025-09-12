@@ -193,7 +193,7 @@ MonoBehaviour:
     x: 469
     z: 303
   missionTerrain: {fileID: 548869851}
-  targetDescription: A man with a black vest
+  targetDescription: A man with a black vest and black pants
   landingRadius: 5
   drones:
   - {fileID: 1684301931}
